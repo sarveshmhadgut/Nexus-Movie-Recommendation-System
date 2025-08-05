@@ -1,3 +1,4 @@
+import os
 import json
 import time
 import random
@@ -21,7 +22,7 @@ with open("./static/style.css") as f:
 
 st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
-API_KEY = config["API_KEY"]
+API_KEY = os.environ.get("MY_API_KEY")
 if "page" not in st.session_state:
     st.session_state.page = "main"
 
@@ -34,7 +35,7 @@ if "selected_movie" not in st.session_state:
 if "suggestions" not in st.session_state:
     st.session_state.suggestions = []
 
-data = pd.read_csv("main_data.csv")
+data = pd.read_csv("../datasets/main_data.csv")
 movie_titles = data["movie_title"].tolist()
 
 session = requests.Session()
@@ -43,9 +44,9 @@ session = requests.Session()
 def create_session():
     session = requests.Session()
     retries = Retry(
-        total=5,  # Retry 5 times
-        backoff_factor=0.2,  # Exponential backoff factor
-        status_forcelist=[429, 500, 504],  # Retry on these HTTP status codes
+        total=5,
+        backoff_factor=0.2,
+        status_forcelist=[429, 500, 504],
     )
     session.mount("https://", HTTPAdapter(max_retries=retries))
     return session
@@ -161,7 +162,7 @@ def fetch_recommendations(movie_id, retries=3, delay=5):
             response.raise_for_status()
             data = response.json()
             if data["results"]:
-                return data["results"][:5]  # Limit to top 5 recommendations
+                return data["results"][:5]
             else:
                 st.warning("No recommendations available.")
                 return []
@@ -174,7 +175,7 @@ def fetch_recommendations(movie_id, retries=3, delay=5):
     st.error(
         f"Failed to fetch recommendations for movie ID {movie_id} after {retries} attempts."
     )
-    return []  # Return an empty list if all retries fail
+    return []
 
 
 # Function to fetch cast details
@@ -250,7 +251,7 @@ def fetch_posters_in_parallel(movie_names):
 
         for future in futures:
             try:
-                result = future.result()  # Wait for each task to complete
+                result = future.result()
                 results.append(result)
             except Exception as e:
                 print(f"Error processing {futures[future]}: {e}")
