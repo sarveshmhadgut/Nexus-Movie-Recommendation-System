@@ -1,16 +1,17 @@
-import streamlit as st
-import pandas as pd
-import random
-import time
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-from PIL import Image
-from io import BytesIO
-from concurrent.futures import ThreadPoolExecutor
 import json
+import time
+import random
+import joblib
+import requests
+from PIL import Image
+import pandas as pd
+import streamlit as st
+from io import BytesIO
+from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
+from concurrent.futures import ThreadPoolExecutor
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
 
 with open("./config.json") as f:
     config = json.load(f)
@@ -33,11 +34,9 @@ if "selected_movie" not in st.session_state:
 if "suggestions" not in st.session_state:
     st.session_state.suggestions = []
 
-# Load the dataset used for movie recommendations
 data = pd.read_csv("main_data.csv")
 movie_titles = data["movie_title"].tolist()
 
-# Create a global session
 session = requests.Session()
 
 
@@ -60,7 +59,11 @@ def create_similarity():
     return similarity
 
 
-# Function to recommend movies
+@st.cache_resource
+def load_model():
+    return joblib.load("nlp_model.pkl")
+
+
 def rcmd(m):
     m = m.lower()
     try:
@@ -78,6 +81,41 @@ def rcmd(m):
         lst = lst[1:11]
         l = [data["movie_title"][a] for a in [x[0] for x in lst]]
         return l
+
+
+def rcmd_with_model(m):
+    m = m.lower()
+    try:
+        # Get the movie's description and vectorize it
+        if m not in data["movie_title"].unique():
+            return "Sorry! The movie you requested is not in our database. Please check the spelling or try with another movie."
+
+        similarity = create_similarity()  # Existing cosine similarity logic
+        i = data.loc[data["movie_title"] == m].index[0]
+
+        lst = list(enumerate(similarity[i]))
+        lst = sorted(lst, key=lambda x: x[1], reverse=True)
+        lst = lst[1:11]  # Get the top 10 similar movies
+
+        recommended_movies = [data["movie_title"][a] for a, _ in lst]
+
+        # Process recommendations with the NLP model
+        nlp_model = load_model()
+        processed_recommendations = [
+            {
+                "title": title,
+                "predicted_score": nlp_model.predict(
+                    [data.loc[data["movie_title"] == title]["description"].values[0]]
+                )[0],
+            }
+            for title in recommended_movies
+        ]
+
+        processed_recommendations.sort(key=lambda x: x["predicted_score"], reverse=True)
+        return [movie["title"] for movie in processed_recommendations]
+    except Exception as e:
+        st.error(f"Error in recommendations: {e}")
+        return []
 
 
 def fetch_movie_details(movie_name):
