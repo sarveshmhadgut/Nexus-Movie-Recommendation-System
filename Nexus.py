@@ -8,21 +8,22 @@ from PIL import Image
 import pandas as pd
 import streamlit as st
 from io import BytesIO
+from dotenv import load_dotenv
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from concurrent.futures import ThreadPoolExecutor
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import CountVectorizer
 
-with open("./config.json") as f:
-    config = json.load(f)
 
 with open("./static/style.css") as f:
     css = f.read()
 
 st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
-API_KEY = os.environ.get("MY_API_KEY")
+load_dotenv()
+API_KEY = os.environ.get("API_KEY")
+
 if "page" not in st.session_state:
     st.session_state.page = "main"
 
